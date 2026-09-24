@@ -20,6 +20,8 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
+import re
+
 import config  # noqa: F401 — you'll use this in search_listings
 from generate import generate
 from utils.data_loader import load_listings
@@ -78,8 +80,33 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    listings = load_listings()
+
+    def size_matches(listing_size: str) -> bool:
+        tokens = re.split(r"[/\s]+", listing_size.lower())
+        return size.lower() in tokens
+
+    filtered = []
+    for listing in listings:
+        if max_price is not None and listing["price"] > max_price:
+            continue
+        if size is not None and not size_matches(listing["size"]):
+            continue
+        filtered.append(listing)
+
+    keywords = [w for w in re.split(r"\W+", description.lower()) if w]
+
+    def score(listing: dict) -> int:
+        haystack = " ".join(
+            [listing["title"], listing["description"], *listing["style_tags"]]
+        ).lower()
+        return sum(1 for kw in keywords if kw in haystack)
+
+    scored = [(score(listing), listing) for listing in filtered]
+    scored = [(s, listing) for s, listing in scored if s > 0]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+
+    return [listing for _, listing in scored[: config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +139,39 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    def describe(item: dict) -> str:
+        parts = [item["title"] if "title" in item else item["name"]]
+        if item.get("colors"):
+            parts.append("in " + ", ".join(item["colors"]))
+        if item.get("style_tags"):
+            parts.append("(" + ", ".join(item["style_tags"]) + ")")
+        return " ".join(parts)
+
+    system = (
+        "You are a thrifting stylist. Suggest one or two complete outfits in "
+        "a couple of short sentences. Be specific and concrete about pieces "
+        "and vibe, not generic."
+    )
+
+    item_desc = describe(new_item)
+
+    if not wardrobe["items"]:
+        prompt = (
+            f"A shopper is considering this thrifted item: {item_desc}.\n"
+            f"They don't have any wardrobe items on file yet. Suggest general "
+            f"styling ideas for this piece — what kinds of items would pair "
+            f"well with it."
+        )
+    else:
+        wardrobe_desc = "\n".join(f"- {describe(item)}" for item in wardrobe["items"])
+        prompt = (
+            f"A shopper is considering this thrifted item: {item_desc}.\n"
+            f"Here is their existing wardrobe:\n{wardrobe_desc}\n\n"
+            f"Suggest one or two outfits that pair the new item with specific "
+            f"pieces they already own, naming those pieces."
+        )
+
+    return generate(prompt, system=system)
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────

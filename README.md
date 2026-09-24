@@ -59,24 +59,25 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters `data/listings.json` by size and price, scores what's left by keyword overlap with `description`, and returns the top matches — no model call.
+- **Inputs:** `description` (str), `size` (str or None), `max_price` (float or None).
+- **Size match rule:** Split the listing's `size` field on `/` and whitespace into tokens (e.g. `"S/M"` → `{"S", "M"}`, `"US 9"` → `{"US", "9"}`), lowercase both sides, and match only if the query `size` equals one whole token — never a substring check. So `size="M"` matches `"S/M"` and `"M/L"` but not `"XL"`; `size="L"` matches `"L/XL"` but not `"XL"` alone.
+- **Returns:** A list of listing dicts, best match first, at most `config.SEARCH_RESULT_LIMIT` of them. Each dict has `id`, `title`, `description`, `category`, `style_tags` (list), `size`, `condition`, `price` (float), `colors` (list), `brand` (str or None), `platform`.
+- **When it has nothing:** An empty list (`[]`) — never `None`, never an exception. `agent.py::run_agent` branches on this to decide whether to stop.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Calls the model to suggest one or two outfits pairing a thrifted `new_item` with pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict — a listing dict), `wardrobe` (dict with an `items` key holding a list of wardrobe item dicts).
+- **Returns:** A non-empty string of outfit suggestions naming specific wardrobe pieces.
+- **When it has nothing:** When `wardrobe['items']` is empty, it still returns a non-empty string — general styling advice for the item instead of naming owned pieces — rather than raising or returning `""`.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Calls the model to write a short, postable caption for the thrifted find, referencing the item, its price, its platform, and the suggested outfit.
+- **Inputs:** `outfit` (str — the suggestion string from `suggest_outfit`), `new_item` (dict — a listing dict).
+- **Returns:** A string caption, two to four sentences long.
+- **When it has nothing:** If `outfit` is empty or whitespace-only, returns a descriptive message string (not an exception) rather than attempting to write a caption around nothing.
 
 ---
 
@@ -93,7 +94,7 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, put a message in `session["error"]` and stop — do not call `suggest_outfit` or `create_fit_card`. Otherwise, take the first result and go to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 

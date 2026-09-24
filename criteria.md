@@ -25,9 +25,13 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+
+`search_listings` scores by plain keyword overlap with `description`, not
+synonyms or fuzzy matching. A phrasing that doesn't share a token with any
+listing's title/description/style_tags scores zero everywhere and the query
+looks "impossible" even though a matching item exists. 5 of 5 would require
+the search itself to be smarter than a keyword filter — 4 of 5 accepts that
+one in five phrasings can miss on wording alone, not on a loop bug.
 
 ---
 
@@ -37,66 +41,66 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+
+This path doesn't depend on wording, the model, or a score threshold — it's a
+single deterministic branch on `len(search_results) == 0`, checked once per
+run in `agent.py::run_agent`. There's no fuzziness for it to fail on the way
+criterion 1's keyword match can. If this isn't 5 of 5, the branch itself is
+missing or wrong, not just unlucky, so anything less than 5 of 5 should be
+treated as a bug, not a target to relax.
 
 ---
 
 ## 3. Something about state
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+Given a matching query, `session["selected_item"]["id"]` equals the `id` of
+the `new_item` dict actually passed into `suggest_outfit` — 5 of 5 tries.
 
 **Why this target:**
 
-
+Nothing is passed tool-to-tool as a bare variable; everything routes through
+`session`. If `search_listings` picks one listing but a stale or
+wrong-index item reaches `suggest_outfit`, the fit card will still come back
+as a plausible-looking string — the failure hides behind a working-looking
+tool call instead of a crash. This is a single dict-copy step with no model
+call and no scoring involved, so there's no reason it should ever miss; 5 of
+5 is the floor, not a stretch goal.
 
 ---
 
 ## 4. Something about the fit card
 
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+For 5 different matching items, each fit card mentions that item's price and
+platform at least once and is 2–4 sentences long — 5 of 5 items.
 
 **Why this target:**
 
-
+The card's wording is allowed to vary run to run — that's `generate()` doing
+its job, not a defect. What isn't allowed to vary is whether the card is
+usable as a real post: a caption that drops the price or platform reads like
+it forgot what it's describing, and one outside 2–4 sentences reads like
+either a fragment or a product blurb, not a caption someone would post. This
+checks content and shape, not phrasing, so it stays true regardless of which
+exact words the model picks.
 
 ---
 
 ## 5. Your choice
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+Given a query with `max_price` set, none of the listings `search_listings`
+returns have a `price` above `max_price` — 5 of 5 tries, checked across
+queries whose ceiling actually excludes at least one listing in the data.
 
 **Why this target:**
 
-
+`search_listings` never calls the model — the price filter is a plain
+numeric comparison over `data/listings.json`, so nothing about it should be
+allowed to be probabilistic. This is also the criterion from the
+"single-quote your queries" warning in CLAUDE.md: a PowerShell query like
+`"under $30"` silently drops the `$30` and the ceiling stops being enforced
+with no error. Checking it at 5 of 5 catches that class of bug directly,
+instead of it showing up later as an outfit suggestion for an item that was
+never supposed to pass the filter.
 
 ---
 
