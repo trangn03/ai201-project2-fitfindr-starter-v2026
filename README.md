@@ -121,8 +121,18 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+$ python -c "from tools import search_listings; r = search_listings('graphic tee', max_price=30); print(len(r), 'results —', r[0]['title'], '$' + str(r[0]['price']))"
+7 results — Y2K Baby Tee — Butterfly Print $18.0
+```
 
+```
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe())[:200])"
+Pair the vintage Levi's 501s with the white ribbed tank top, layered under the vintage black denim jacket, and finish with chunky white sneakers and the black crossbody bag for an effortless 90s stree
+```
+
+```
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0])[:200])"
+Found the holy grail of denim on Depop for just $38. These vintage 501s have that perfect broken-in medium wash and fit like a dream. Throwing them on with crisp white sneakers for the ultimate effort
 ```
 
 ```
