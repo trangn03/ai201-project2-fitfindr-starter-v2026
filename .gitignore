@@ -25,3 +25,5 @@ Thumbs.db
 # Personal Claude Code session log + local hook config
 logs/
 .claude/settings.local.json
+.claude/hooks/log_prompt.py
+/.claude/hooks
