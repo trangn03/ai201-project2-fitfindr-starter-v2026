@@ -210,5 +210,24 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return (
+            f"No outfit suggestion was available for {new_item['title']}, so "
+            f"no fit card could be written."
+        )
+
+    system = (
+        "You write short, punchy social captions for thrifted fashion finds. "
+        "Sound like a real person posting about a find, not a product listing. "
+        "Two to four sentences. Mention the price and platform once each, and "
+        "be specific about the vibe."
+    )
+
+    prompt = (
+        f"Item: {new_item['title']} — ${new_item['price']:.2f} on "
+        f"{new_item['platform']}.\n"
+        f"Outfit idea: {outfit}\n\n"
+        f"Write the caption."
+    )
+
+    return generate(prompt, system=system)
